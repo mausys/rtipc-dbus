@@ -2,7 +2,8 @@
 
 #include <systemd/sd-bus.h>
 
-#include <rtipc.h>
+#include <rtipc/rtipc.h>
+#include <rtipc/log.h>
 
 #include "client.h"
 #include "messages.h"
@@ -13,19 +14,19 @@
 
 
 
-ri_vector_t* rtipc_connect(sd_bus *bus, const ri_config_t *config) {
+ri_group_t* rtipc_connect(sd_bus *bus, const ri_group_attr_t *attr) {
   int r = -1;
   _cleanup_(sd_bus_message_unrefp) sd_bus_message *msg = NULL;
   _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
   _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-  ri_vector_t *vec = ri_vector_new(config);
-  if (!vec) {
+  ri_group_t *grp = ri_group_from_attr(attr);
+  if (!grp) {
     LOG_ERR("ri_transfer_new failed");
     goto fail_vec;
   }
 
-  size_t req_size = ri_vector_serialize_size(vec);
+  size_t req_size = ri_group_serialize_size(grp);
 
   uint8_t *req = malloc(req_size);
   if (!req) {
@@ -35,7 +36,7 @@ ri_vector_t* rtipc_connect(sd_bus *bus, const ri_config_t *config) {
 
   int fds[100];
   unsigned n_fds = 100;
-  r = ri_vector_serialize(vec, req, req_size, fds, &n_fds);
+  r = ri_group_serialize(grp, req, req_size, fds, &n_fds);
   if (r < 0) {
     LOG_ERR("ri_resource_serialize failed");
     goto fail_serialize;
@@ -83,31 +84,31 @@ ri_vector_t* rtipc_connect(sd_bus *bus, const ri_config_t *config) {
 
   free(req);
 
-  return vec;
+  return grp;
 
 fail_call:
 fail_serialize:
   free(req);
 fail_req:
-  ri_vector_delete(vec);
+  ri_group_delete(grp);
 fail_vec:
   return NULL;
 }
 
-const ri_attr_t client2server_channels[] = {
-    (ri_attr_t) {.add_msgs = 0,
+const ri_channel_attr_t client2server_channels[] = {
+    (ri_channel_attr_t) {.add_msgs = 0,
                     .msg_size = sizeof(msg_command_t),
                     .eventfd = 1,
                     .info = {.data = COMMAND_INFO, .size = sizeof(COMMAND_INFO)}},
     {0},
 };
 
-const ri_attr_t server2client_channels[] = {
-    (ri_attr_t) {.add_msgs = 0,
+const ri_channel_attr_t server2client_channels[] = {
+    (ri_channel_attr_t) {.add_msgs = 0,
                     .msg_size = sizeof(msg_response_t),
                     .eventfd = 1,
                     .info = {.data = RESPONSE_INFO, .size = sizeof(RESPONSE_INFO)}},
-    (ri_attr_t) {.add_msgs = 10,
+    (ri_channel_attr_t) {.add_msgs = 10,
                     .msg_size = sizeof(msg_event_t),
                     .eventfd = 1,
                     .info = {.data = EVENT_INFO, .size = sizeof(EVENT_INFO)}},
@@ -115,7 +116,7 @@ const ri_attr_t server2client_channels[] = {
 };
 
 int main(int argc, char *argv[]) {
-  const ri_config_t config = {
+  const ri_group_attr_t attr = {
       .consumers = server2client_channels,
       .producers = client2server_channels,
   };
@@ -135,12 +136,12 @@ int main(int argc, char *argv[]) {
     goto fail_attach;
   }
 
-  ri_vector_t* vec = rtipc_connect(bus, &config);
-  if (!vec) {
+  ri_group_t* grp = rtipc_connect(bus, &attr);
+  if (!grp) {
     goto fail_vec;
   }
 
-  client_new(vec, event);
+  client_new(grp, event);
 
   sd_event_loop(event);
 

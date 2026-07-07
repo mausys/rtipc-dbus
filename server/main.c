@@ -2,7 +2,7 @@
 
 #include <systemd/sd-bus.h>
 
-#include <rtipc.h>
+#include <rtipc/rtipc.h>
 
 #include "service.h"
 

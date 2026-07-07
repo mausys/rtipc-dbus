@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
-#include "rtipc.h"
+#include <rtipc/log.h>
 #include "messages.h"
 
 #define MAX_CYCLES 10000
@@ -98,14 +97,14 @@ static int cmd_handler(sd_event_source *es, int fd, uint32_t revents, void *user
 
 static void server_print_info(const server_t* server)
 {
-  ri_info_t info = ri_consumer_info(server->command);
-  LOG_INF("command name = %s", (const char*)info.data);
+  //ri_info_t info = ri_consumer_info(server->command);
+  //LOG_INF("command name = %s", (const char*)info.data);
 
-  info = ri_producer_info(server->response);
-  LOG_INF("response name = %s", (const char*)info.data);
+  //info = ri_producer_info(server->response);
+  //LOG_INF("response name = %s", (const char*)info.data);
 
-  info = ri_producer_info(server->async);
-  LOG_INF("async name = %s", (const char*)info.data);
+  //info = ri_producer_info(server->async);
+  //LOG_INF("async name = %s", (const char*)info.data);
 
 }
 
@@ -121,31 +120,31 @@ void server_delete(server_t* server)
     sd_event_source_unref(server->event_exit);
   }
   if (server->command)
-    ri_consumer_delete(server->command);
+    ri_consumer_release(server->command);
   if (server->response)
-    ri_producer_delete(server->response);
+    ri_producer_release(server->response);
   if (server->async)
-    ri_producer_delete(server->async);
+    ri_producer_release(server->async);
   free(server);
 }
 
 
-server_t* server_new(sd_event *event, ri_vector_t *vec)
+server_t* server_new(sd_event *event, ri_group_t *grp)
 {
   server_t *server = calloc(1, sizeof(server_t));
 
   if (!server)
     goto fail_alloc;
 
-  server->command = ri_vector_take_consumer(vec, 0);
+  server->command = ri_group_acquire_consumer(grp, 0);
   if (!server->command)
     goto fail_channel;
 
-  server->response = ri_vector_take_producer(vec, 0);
+  server->response = ri_group_acquire_producer(grp, 0);
   if (!server->response)
     goto fail_channel;
 
-  server->async = ri_vector_take_producer(vec, 1);
+  server->async = ri_group_acquire_producer(grp, 1);
   if (!server->async)
     goto fail_channel;
 

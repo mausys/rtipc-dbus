@@ -1,8 +1,11 @@
+#include "client.h"
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include "client.h"
+#include <rtipc/log.h>
+
 #include "messages.h"
 
 
@@ -63,11 +66,11 @@ static void client_delete(client_t *client)
     sd_event_source_unref(client->event_exit);
   }
   if (client->command)
-    ri_producer_delete(client->command);
+    ri_producer_release(client->command);
   if (client->response)
-    ri_consumer_delete(client->response);
+    ri_consumer_release(client->response);
   if (client->event)
-    ri_consumer_delete(client->event);
+    ri_consumer_release(client->event);
   free(client);
 }
 
@@ -129,7 +132,7 @@ int evt_handler(sd_event_source *es, int fd, uint32_t revents, void *userdata)
 }
 
 
-client_t* client_new(ri_vector_t *vec, sd_event *event)
+client_t* client_new(ri_group_t *grp, sd_event *event)
 {
   client_t *client = calloc(1, sizeof(client_t));
 
@@ -138,15 +141,15 @@ client_t* client_new(ri_vector_t *vec, sd_event *event)
 
   client->cmd_list = cmd_list;
 
-  client->command = ri_vector_take_producer(vec, 0);
+  client->command = ri_group_acquire_producer(grp, 0);
   if (!client->command)
     goto fail_channel;
 
-  client->response = ri_vector_take_consumer(vec, 0);
+  client->response = ri_group_acquire_consumer(grp, 0);
   if (!client->response)
     goto fail_channel;
 
-  client->event = ri_vector_take_consumer(vec, 1);
+  client->event = ri_group_acquire_consumer(grp, 1);
   if (!client->event)
     goto fail_channel;
 

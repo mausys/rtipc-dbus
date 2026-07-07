@@ -1,6 +1,7 @@
 #include "messages.h"
 
-#include <rtipc.h>
+#include <rtipc/rtipc.h>
+#include <rtipc/log.h>
 
 void msg_command_print(const msg_command_t *msg)
 {

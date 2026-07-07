@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <rtipc.h>
+#include <rtipc/rtipc.h>
+#include <rtipc/log.h>
 
 
 #include "server.h"
@@ -132,14 +133,14 @@ static int method_connect(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
   if (!fds)
     goto fail_fds;
 
-  ri_vector_t* vec = ri_vector_deserialize(request, request_size, fds, &n_fds);
-  if (!vec) {
-    LOG_ERR("ri_vector_deserialize failed");
-    goto fail_vec;
+  ri_group_t* grp = ri_group_deserialize(request, request_size, fds, &n_fds);
+  if (!grp) {
+    LOG_ERR("ri_group_deserialize failed");
+    goto fail_grp;
   }
 
   /* server delete itself when eventloop exits */
-  server_t *server = server_new(service->event, vec);
+  server_t *server = server_new(service->event, grp);
   if (!server) {
     LOG_ERR("server_new failed");
     goto fail_server;
@@ -151,14 +152,14 @@ static int method_connect(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
     goto fail_server;
   }
 
-  ri_vector_delete(vec);
+  ri_group_delete(grp);
   free(fds);
 
   return r;
 
 fail_server:
-  ri_vector_delete(vec);
-fail_vec:
+  ri_group_delete(grp);
+fail_grp:
   free(fds);
 fail_fds:
 fail_parse:
