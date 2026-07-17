@@ -1,3 +1,3 @@
 [submodule "rtipc"]
 	path = rtipc
-	url = https://github.com/mausys/rtipc.git
+	url = https://github.com/rtipc/rtipc.git
